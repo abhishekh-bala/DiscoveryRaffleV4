@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Search, Download, Trash2, Filter, Users, Ticket } from 'lucide-react';
 import Layout from '../components/Layout';
 import Navigation from '../components/Navigation';
 import GlassCard from '../components/GlassCard';
-import { getWinners, clearWinners } from '../utils/storage';
+import { getWinners, clearWinners, getWinnersFromSupabase, clearWinnersFromSupabase } from '../utils/storage';
 import { exportToCSV } from '../utils/raffle';
 import type { Department, DrawType } from '../types';
 
@@ -13,8 +14,25 @@ export default function Winners() {
   const [departmentFilter, setDepartmentFilter] = useState<Department | 'all'>('all');
   const [drawTypeFilter, setDrawTypeFilter] = useState<DrawType | 'all'>('all');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const winners = getWinners();
+  const [winners, setWinners] = useState(getWinners());
+
+  useEffect(() => {
+    const loadWinnersFromSupabase = async () => {
+      setIsLoading(true);
+      try {
+        const supabaseWinners = await getWinnersFromSupabase();
+        setWinners(supabaseWinners);
+      } catch (error) {
+        console.error('Failed to load winners from Supabase:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadWinnersFromSupabase();
+  }, []);
 
   const filteredWinners = useMemo(() => {
     let filtered = winners;
@@ -65,10 +83,11 @@ export default function Winners() {
     exportToCSV(filteredWinners);
   };
 
-  const handleClearWinners = () => {
+  const handleClearWinners = async () => {
     clearWinners();
+    await clearWinnersFromSupabase();
     setShowClearConfirm(false);
-    window.location.reload();
+    setWinners([]);
   };
 
   return (
@@ -77,6 +96,15 @@ export default function Winners() {
       
       <div className="space-y-8">
         {/* Stats Overview */}
+        {isLoading && (
+          <div className="text-center py-4">
+            <div className="inline-flex items-center space-x-2 text-white/70">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>Loading winners from Supabase...</span>
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <GlassCard className="p-6" hover>
             <div className="flex items-center justify-between">

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Trophy, BarChart3, Dice6, Ticket } from 'lucide-react';
@@ -6,14 +7,32 @@ import Layout from '../components/Layout';
 import Navigation from '../components/Navigation';
 import GlassCard from '../components/GlassCard';
 import { getAllContestants, getContestantsByDepartment } from '../utils/raffle';
-import { getWinners } from '../utils/storage';
+import { getWinners, getWinnersFromSupabase } from '../utils/storage';
 import type { DrawType } from '../types';
 
 export default function Dashboard() {
+  const [winners, setWinners] = useState(getWinners());
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const loadWinnersFromSupabase = async () => {
+      setIsLoading(true);
+      try {
+        const supabaseWinners = await getWinnersFromSupabase();
+        setWinners(supabaseWinners);
+      } catch (error) {
+        console.error('Failed to load winners from Supabase:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadWinnersFromSupabase();
+  }, []);
+
   const contestants70 = getAllContestants('discovery-70');
   const contestants80 = getAllContestants('discovery-80');
   const allContestants = [...contestants70, ...contestants80];
-  const winners = getWinners();
   
   const departmentStats = [
     { 
@@ -81,6 +100,15 @@ export default function Dashboard() {
       
       <div className="space-y-8">
         {/* Overview Stats */}
+        {isLoading && (
+          <div className="text-center py-4">
+            <div className="inline-flex items-center space-x-2 text-white/70">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>Loading data from Supabase...</span>
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <GlassCard className="p-6" hover>
             <div className="flex items-center justify-between">

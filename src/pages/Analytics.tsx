@@ -1,4 +1,5 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bar } from 'react-chartjs-2';
 import {
@@ -10,11 +11,11 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { BarChart3, TrendingUp, Users, Calendar, Ticket } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Calendar, Ticket, ToggleLeft, ToggleRight } from 'lucide-react';
 import Layout from '../components/Layout';
 import Navigation from '../components/Navigation';
 import GlassCard from '../components/GlassCard';
-import { getWinners } from '../utils/storage';
+import { getWinners, getWinnersFromSupabase } from '../utils/storage';
 import { getAllContestants, getContestantsByDepartment } from '../utils/raffle';
 import type { DrawType } from '../types';
 
@@ -28,7 +29,26 @@ ChartJS.register(
 );
 
 export default function Analytics() {
-  const winners = getWinners();
+  const [winners, setWinners] = useState(getWinners());
+  const [selectedChart, setSelectedChart] = useState<'discovery-70' | 'discovery-80'>('discovery-70');
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const loadWinnersFromSupabase = async () => {
+      setIsLoading(true);
+      try {
+        const supabaseWinners = await getWinnersFromSupabase();
+        setWinners(supabaseWinners);
+      } catch (error) {
+        console.error('Failed to load winners from Supabase:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadWinnersFromSupabase();
+  }, []);
+
   const contestants70 = getAllContestants('discovery-70');
   const contestants80 = getAllContestants('discovery-80');
   const allContestants = [...contestants70, ...contestants80];
@@ -50,47 +70,35 @@ export default function Analytics() {
       : 0
   }));
 
-  const drawTypeData = [
+  // Data for the selected chart
+  const selectedWinners = winners.filter(w => w.drawType === selectedChart);
+  const departmentWinnerCounts = [
     {
-      drawType: '70% Discovery',
-      contestants: contestants70.length,
-      winners: winners.filter(w => w.drawType === 'discovery-70').length,
-      tickets: contestants70.reduce((sum, c) => sum + c.tickets, 0)
+      department: 'International Messaging',
+      winners: selectedWinners.filter(w => w.department === 'International Messaging').length
     },
     {
-      drawType: '80% Discovery',
-      contestants: contestants80.length,
-      winners: winners.filter(w => w.drawType === 'discovery-80').length,
-      tickets: contestants80.reduce((sum, c) => sum + c.tickets, 0)
+      department: 'India Messaging', 
+      winners: selectedWinners.filter(w => w.department === 'India Messaging').length
+    },
+    {
+      department: 'APAC',
+      winners: selectedWinners.filter(w => w.department === 'APAC').length
     }
   ];
 
   const chartData = {
-    labels: ['70% Discovery', '80% Discovery'],
+    labels: departmentWinnerCounts.map(d => d.department.replace(' Messaging', '')),
     datasets: [
       {
-        label: 'Total Contestants',
-        data: drawTypeData.map(d => d.contestants),
-        backgroundColor: 'rgba(59, 130, 246, 0.3)',
-        borderColor: 'rgba(59, 130, 246, 0.8)',
-        borderWidth: 2,
-        borderRadius: 8,
-        borderSkipped: false,
-      },
-      {
         label: 'Winners Selected',
-        data: drawTypeData.map(d => d.winners),
-        backgroundColor: 'rgba(34, 197, 94, 0.3)',
-        borderColor: 'rgba(34, 197, 94, 0.8)',
-        borderWidth: 2,
-        borderRadius: 8,
-        borderSkipped: false,
-      },
-      {
-        label: 'Total Tickets',
-        data: drawTypeData.map(d => d.tickets),
-        backgroundColor: 'rgba(251, 191, 36, 0.3)',
-        borderColor: 'rgba(251, 191, 36, 0.8)',
+        data: departmentWinnerCounts.map(d => d.winners),
+        backgroundColor: selectedChart === 'discovery-70' 
+          ? 'rgba(59, 130, 246, 0.3)' 
+          : 'rgba(147, 51, 234, 0.3)',
+        borderColor: selectedChart === 'discovery-70' 
+          ? 'rgba(59, 130, 246, 0.8)' 
+          : 'rgba(147, 51, 234, 0.8)',
         borderWidth: 2,
         borderRadius: 8,
         borderSkipped: false,
@@ -117,7 +125,7 @@ export default function Analytics() {
       },
       title: {
         display: true,
-        text: 'Discovery Draws Overview',
+        text: `Winners by Department - ${selectedChart === 'discovery-70' ? '70%' : '80%'} Discovery`,
         color: 'rgba(255, 255, 255, 0.9)',
         font: {
           size: 18,
@@ -153,6 +161,7 @@ export default function Analytics() {
       },
       y: {
         beginAtZero: true,
+        max: Math.max(...departmentWinnerCounts.map(d => d.winners)) + 2,
         grid: {
           color: 'rgba(255, 255, 255, 0.1)',
           drawBorder: false
@@ -201,7 +210,9 @@ export default function Analytics() {
   };
 
   const recentDraws = getRecentDrawsData();
-  const totalTickets = contestants70.reduce((sum, c) => sum + c.tickets, 0) + contestants80.reduce((sum, c) => sum + c.tickets, 0);
+  const totalTickets70 = contestants70.reduce((sum, c) => sum + c.tickets, 0);
+  const totalTickets80 = contestants80.reduce((sum, c) => sum + c.tickets, 0);
+  const totalTickets = totalTickets70 + totalTickets80;
 
   return (
     <Layout title="Analytics Dashboard">
@@ -210,6 +221,15 @@ export default function Analytics() {
       <div className="space-y-8">
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          {isLoading && (
+            <div className="col-span-full text-center py-4">
+              <div className="inline-flex items-center space-x-2 text-white/70">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>Loading data from Supabase...</span>
+              </div>
+            </div>
+          )}
+          
           <GlassCard className="p-6" hover>
             <div className="flex items-center justify-between">
               <div>
@@ -278,10 +298,51 @@ export default function Analytics() {
           </GlassCard>
         </div>
 
-        {/* Main Chart */}
+        {/* Chart Toggle and Main Chart */}
         <GlassCard className="p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-white">Winners by Department</h3>
+            <div className="flex items-center space-x-4">
+              <span className="text-white/70 text-sm">Chart View:</span>
+              <div className="flex items-center space-x-2 p-1 rounded-lg bg-white/10 backdrop-blur-md">
+                <motion.button
+                  onClick={() => setSelectedChart('discovery-70')}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                    selectedChart === 'discovery-70'
+                      ? 'bg-blue-500 text-white shadow-lg'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  70% Discovery
+                </motion.button>
+                <motion.button
+                  onClick={() => setSelectedChart('discovery-80')}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                    selectedChart === 'discovery-80'
+                      ? 'bg-purple-500 text-white shadow-lg'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  80% Discovery
+                </motion.button>
+              </div>
+            </div>
+          </div>
+          
           <div className="h-96 w-full">
-            <Bar data={chartData} options={chartOptions} />
+            <motion.div
+              key={selectedChart}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="h-full"
+            >
+              <Bar data={chartData} options={chartOptions} />
+            </motion.div>
           </div>
         </GlassCard>
 
@@ -310,11 +371,11 @@ export default function Analytics() {
                   <div className="grid grid-cols-2 gap-4 text-sm text-white/70 mb-2">
                     <div>
                       <div>70% Discovery:</div>
-                      <div className="text-xs">Contestants: {dept.total70} • Winners: {dept.winners70}</div>
+                      <div className="text-xs">Winners: {dept.winners70}</div>
                     </div>
                     <div>
                       <div>80% Discovery:</div>
-                      <div className="text-xs">Contestants: {dept.total80} • Winners: {dept.winners80}</div>
+                      <div className="text-xs">Winners: {dept.winners80}</div>
                     </div>
                   </div>
 
@@ -411,10 +472,10 @@ export default function Analytics() {
               <div className="p-4 rounded-lg bg-orange-500/10 backdrop-blur-md border border-orange-400/20">
                 <h4 className="text-orange-200 font-medium mb-2">Ticket Distribution</h4>
                 <p className="text-white text-lg">
-                  {Math.round(totalTickets / (contestants70.length + contestants80.length))}
+                  {totalTickets}
                 </p>
                 <p className="text-orange-200/70 text-sm">
-                  average tickets per contestant
+                  total tickets (70%: {totalTickets70}, 80%: {totalTickets80})
                 </p>
               </div>
 
