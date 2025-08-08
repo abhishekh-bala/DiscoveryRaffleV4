@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
 import Layout from '../components/Layout';
 import Navigation from '../components/Navigation';
 import GlassCard from '../components/GlassCard';
@@ -38,6 +39,60 @@ export const Raffle: React.FC = () => {
     setWinners(getWinners(selectedDraw));
   }, [selectedDraw]);
 
+  const triggerConfetti = () => {
+    // Main confetti burst
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+
+    // Side confetti bursts
+    setTimeout(() => {
+      confetti({
+        particleCount: 50,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 }
+      });
+      confetti({
+        particleCount: 50,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 }
+      });
+    }, 200);
+
+    // Continuous rain effect
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    function randomInRange(min: number, max: number) {
+      return Math.random() * (max - min) + min;
+    }
+
+    const interval = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+      });
+    }, 250);
+  };
+
   const handleDraw = async () => {
     const existingWinnerNames = winners.filter(w => w.drawType === selectedDraw).map(w => w.name);
     const eligibleContestants = contestants.filter(c => !existingWinnerNames.includes(c.name));
@@ -70,10 +125,22 @@ export const Raffle: React.FC = () => {
     
     setAnimationPhase('revealing');
     
+    // Trigger confetti when revealing winners
+    triggerConfetti();
+    
     // Reveal winners one by one
     for (let i = 0; i < selectedWinners.length; i++) {
       await new Promise(resolve => setTimeout(resolve, 800));
       setCurrentWinners(prev => [...prev, selectedWinners[i]]);
+      
+      // Additional confetti burst for each winner
+      if (i > 0) {
+        confetti({
+          particleCount: 30,
+          spread: 50,
+          origin: { y: 0.7 }
+        });
+      }
       
       // Add winner to storage
       const newWinner = addWinner(selectedWinners[i], selectedDraw);
@@ -289,32 +356,96 @@ export const Raffle: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.6, type: "spring", bounce: 0.4 }}
                   className="space-y-4"
                 >
-                  <h2 className="text-3xl font-bold text-white mb-6 flex items-center justify-center">
+                  <motion.h2 
+                    initial={{ y: -20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2, duration: 0.5 }}
+                    className="text-3xl font-bold text-white mb-6 flex items-center justify-center"
+                  >
                     <Trophy className="w-8 h-8 mr-3 text-yellow-400" />
                     {currentWinners.length === 1 ? 'Winner Selected!' : 'Winners Selected!'}
-                  </h2>
+                  </motion.h2>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
                     {currentWinners.map((winner, index) => (
                       <motion.div
                         key={winner.name}
-                        initial={{ opacity: 0, y: 50, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ delay: index * 0.2 }}
+                        initial={{ opacity: 0, y: 100, scale: 0.5, rotateY: 180 }}
+                        animate={{ 
+                          opacity: 1, 
+                          y: 0, 
+                          scale: 1, 
+                          rotateY: 0,
+                          transition: {
+                            delay: index * 0.3,
+                            duration: 0.8,
+                            type: "spring",
+                            bounce: 0.6
+                          }
+                        }}
+                        whileHover={{ 
+                          scale: 1.05, 
+                          y: -10,
+                          transition: { duration: 0.2 }
+                        }}
                         className={`p-6 bg-gradient-to-br ${currentDrawConfig.color}/20 rounded-xl border border-white/30 backdrop-blur-md`}
                       >
+                        {/* Sparkle effects */}
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: [0, 1.2, 1] }}
+                          transition={{ delay: index * 0.3 + 0.5, duration: 0.6 }}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center"
+                        >
+                          <Sparkles className="w-4 h-4 text-white" />
+                        </motion.div>
+                        
                         <div className="text-center">
-                          <div className={`w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-r ${currentDrawConfig.color} flex items-center justify-center text-white font-bold text-lg`}>
+                          <motion.div 
+                            initial={{ scale: 0, rotate: -180 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ delay: index * 0.3 + 0.2, duration: 0.5, type: "spring" }}
+                            className={`w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-r ${currentDrawConfig.color} flex items-center justify-center text-white font-bold text-lg shadow-lg`}
+                          >
                             {index + 1}
-                          </div>
-                          <h3 className="text-xl font-bold text-white mb-2">{winner.name}</h3>
-                          <p className="text-white/80 text-sm mb-1">{winner.department}</p>
-                          <p className="text-white/60 text-xs mb-2">Supervisor: {winner.supervisor}</p>
+                          </motion.div>
+                          <motion.h3 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.3 + 0.4 }}
+                            className="text-xl font-bold text-white mb-2"
+                          >
+                            {winner.name}
+                          </motion.h3>
+                          <motion.p 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.3 + 0.5 }}
+                            className="text-white/80 text-sm mb-1"
+                          >
+                            {winner.department}
+                          </motion.p>
+                          <motion.p 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.3 + 0.6 }}
+                            className="text-white/60 text-xs mb-2"
+                          >
+                            Supervisor: {winner.supervisor}
+                          </motion.p>
                           <div className="flex items-center justify-center space-x-1">
                             <Ticket className="w-4 h-4 text-yellow-400" />
-                            <span className="text-yellow-400 font-bold">{winner.tickets} tickets</span>
+                            <motion.span 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: index * 0.3 + 0.7, type: "spring", bounce: 0.5 }}
+                              className="text-yellow-400 font-bold"
+                            >
+                              {winner.tickets} tickets
+                            </motion.span>
                           </div>
                         </div>
                       </motion.div>
@@ -329,6 +460,7 @@ export const Raffle: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
                 className="space-y-4"
               >
                 <div className="flex items-center justify-center space-x-3">
@@ -337,17 +469,32 @@ export const Raffle: React.FC = () => {
                     transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                     className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"
                   />
-                  <h2 className="text-2xl font-bold text-white">
+                  <motion.h2 
+                    animate={{ 
+                      scale: [1, 1.05, 1],
+                      textShadow: [
+                        "0 0 0px rgba(255,255,255,0)",
+                        "0 0 20px rgba(255,255,255,0.5)",
+                        "0 0 0px rgba(255,255,255,0)"
+                      ]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="text-2xl font-bold text-white"
+                  >
                     {animationPhase === 'shaking' && 'Shaking the jar...'}
                     {animationPhase === 'picking' && 'Picking winners...'}
                     {animationPhase === 'revealing' && 'Revealing winners...'}
-                  </h2>
+                  </motion.h2>
                 </div>
-                <p className="text-white/70">
+                <motion.p 
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="text-white/70"
+                >
                   {animationPhase === 'shaking' && 'Mixing up all the contestant chits'}
                   {animationPhase === 'picking' && `Selecting ${numberOfWinners} winner${numberOfWinners > 1 ? 's' : ''} from the jar`}
                   {animationPhase === 'revealing' && 'Announcing the lucky winners'}
-                </p>
+                </motion.p>
               </motion.div>
             )}
 
@@ -366,11 +513,27 @@ export const Raffle: React.FC = () => {
               <motion.button
                 onClick={handleDraw}
                 disabled={isDrawing || eligibleContestants.length === 0}
-                whileHover={{ scale: isDrawing ? 1 : 1.05 }}
+                whileHover={{ 
+                  scale: isDrawing ? 1 : 1.05,
+                  boxShadow: isDrawing ? "none" : "0 10px 30px rgba(0,0,0,0.3)"
+                }}
                 whileTap={{ scale: isDrawing ? 1 : 0.95 }}
+                animate={isDrawing ? {
+                  background: [
+                    `linear-gradient(45deg, ${currentDrawConfig.color.split(' ')[1]}, ${currentDrawConfig.color.split(' ')[3]})`,
+                    `linear-gradient(45deg, ${currentDrawConfig.color.split(' ')[3]}, ${currentDrawConfig.color.split(' ')[1]})`,
+                    `linear-gradient(45deg, ${currentDrawConfig.color.split(' ')[1]}, ${currentDrawConfig.color.split(' ')[3]})`
+                  ]
+                } : {}}
+                transition={isDrawing ? { duration: 2, repeat: Infinity } : {}}
                 className={`flex items-center space-x-2 px-8 py-4 rounded-lg bg-gradient-to-r ${currentDrawConfig.color} text-white font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg`}
               >
-                <Play className="w-5 h-5" />
+                <motion.div
+                  animate={isDrawing ? { rotate: 360 } : {}}
+                  transition={isDrawing ? { duration: 1, repeat: Infinity, ease: "linear" } : {}}
+                >
+                  <Play className="w-5 h-5" />
+                </motion.div>
                 <span>
                   {isDrawing 
                     ? 'Drawing...' 
