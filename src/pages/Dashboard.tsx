@@ -192,11 +192,11 @@ export default function Dashboard() {
                 <div key={dept} className="p-3 rounded-lg bg-white/10 backdrop-blur-md">
                   <div className="flex justify-between items-center mb-2">
                   <span className="text-white font-medium">{dept}</span>
-                    <span className="text-white/80">{counts.discovery70 + counts.discovery80} total</span>
+                    <span className="text-white/80">{count.discovery70 + count.discovery80} total</span>
                   </div>
                   <div className="flex justify-between text-sm text-white/60">
-                    <span>70% Discovery: {counts.discovery70}</span>
-                    <span>80% Discovery: {counts.discovery80}</span>
+                    <span>70% Discovery: {count.discovery70}</span>
+                    <span>80% Discovery: {count.discovery80}</span>
                   </div>
                 </div>
               ))}
